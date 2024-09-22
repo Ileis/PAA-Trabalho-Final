@@ -99,6 +99,20 @@ def edges_to_cycle(e: List[Edge]) -> Graph:
 
     return cycle
 
+# Retorna a sequencia de vertices percorridos pelo ciclo
+def cycle_to_vertices(c: Graph) -> List[Node]:
+    cycle: List[Node] = list()
+
+    if len(c) == 0: return cycle
+
+    vertex: Node = choice(list(c.keys()))
+
+    for i in range(len(c)):
+        cycle.append(vertex)
+        vertex = list(c[vertex])[0]
+
+    return cycle
+
 # Retorna a lista de arestas de um ciclo
 def get_edge_cycle(g: Graph) -> List[Edge]:
     def dfs_cycle(u: Node, p: Node) -> List[Edge]:
@@ -258,7 +272,7 @@ def show_bi_comp_cycle_and_seg(g: Graph, c: Graph, s: List[Segment]) -> None:
     # print('att:', get_attachment(s[0]))
 
     g_nx = my_Graph_to_nx_Graph(g)
-    cycle = cycle_to_list_cycle(c)
+    cycle = cycle_to_vertices(c)
 
     fig, axes = plt.subplots(1, len(s) + 1, figsize=(15, 5))
 
@@ -274,19 +288,6 @@ def show_bi_comp_cycle_and_seg(g: Graph, c: Graph, s: List[Segment]) -> None:
         nx.draw(seg := my_Graph_to_nx_Graph(get_segment(s_b)), ax=axes[i + 1], node_color=['orange' if v in cycle else 'lightblue' for v in seg.nodes()])
 
     plt.show()
-
-def cycle_to_list_cycle(c: Graph) -> List[Node]:
-    cycle: List[Node] = list()
-
-    if len(c) == 0: return cycle
-
-    vertex: Node = choice(list(c.keys()))
-
-    for i in range(len(c)):
-        cycle.append(vertex)
-        vertex = list(c[vertex])[0]
-
-    return cycle
 
 def main() -> None:
     g_nx = random_connected_graph(20, 0.15)
