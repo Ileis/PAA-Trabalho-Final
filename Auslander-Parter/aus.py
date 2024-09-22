@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 from typing import * # type: ignore
 from collections import deque
 
-from sympy import degree
-
 T = TypeVar('T')
 Node = T
 Graph = Dict[Node, Set[Node]]
@@ -455,7 +453,6 @@ def main() -> None:
         show_bipartite_graph(get_interlacement_graph(s, c))
     
     pass
-
 
 if __name__ == '__main__':
     main()
