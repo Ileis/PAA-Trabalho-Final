@@ -4,6 +4,9 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from typing import * # type: ignore
 from collections import deque
+import sys
+
+sys.setrecursionlimit(40000)
 
 T = TypeVar('T')
 Node = T
@@ -270,37 +273,62 @@ def find_edge_cycle(g: Graph) -> List[Edge]:
 def label_cycle(c: List[Node], s: Segment) -> Dict[Node, int]:
     label_s: Dict[Node, int] = dict()
 
+    att = get_attachment(s)
+
     i: int = 0
     for v in c:
-        if v in get_attachment(s):
-            label_s[v] = (2 * i)
-            i += 1
-        else:
-            label_s[v] = (2 * i) + 1
+        if v in att:
+            label_s[v] = (i * 2)
+
+
+    for i in range(len(c)):
+        v = c[i]
+        if v not in label_s:
+            label_s[v] = 1 + len(label_s)
+
+    for i in range(len(c) - 1):
+        v1, v2 = c[i], c[i + 1]
+
+        if v1 in att and v2 in att:
+            continue
+
+        if v1 in label_s and v2 not in label_s:
+            label_s[v2] = 1 + len(label_s)
 
     return label_s
 
-def check_conflict(seg1: Segment, seg2: Segment, c: List[Node]) -> bool:
-    cycle_label_2 = label_cycle(c, seg2)
-    k = len(get_attachment(seg2))
+def check_conflict(seg_i: Segment, seg_j: Segment, c: List[Node]) -> bool:
+    list_att: List[Node] = list()
+    set_att1 = get_attachment(seg_i)
+    set_att2 = get_attachment(seg_j)
 
-    labels: List[int] = [0] * (k * 4)
-    s: int = 0
+    for v in c:
+        if v in set_att1: list_att.append(v)
+        if v in set_att2: list_att.append(v)
 
-    for att in get_attachment(seg1):
-        labels[cycle_label_2[att]] = 1
-    
-    for i in range(len(labels)):
-        s = s + labels[i]
+    count_1: int = 0
+    count_2: int = 0
 
-    part_sum: int = labels[0] + labels[1] + labels[2]
+    for v in c:
+        if v in set_att1:
+            count_1 += 1
 
-    for i in range((2 * k) - 2):
-        if part_sum == s:
+        if v in set_att2:
+            count_2 += 1
+
+        if count_1 == len(set_att1):
             return False
-    
-        part_sum = part_sum + labels[(3 + i) % (2 * k)] + labels[(4 + i) % (2 * k)]
-        part_sum = part_sum - labels[i] - labels[(1 + i) % (2 * k)]
+        
+        if count_2 == len(set_att2):
+            return False
+        
+        if v in set_att1 and v in set_att2:
+            if count_1 > 0 and count_1 < len(set_att1):
+                count_1 = 0
+            
+            if count_2 > 0 and count_2 < len(set_att2):
+                count_2 = 0
+
 
     return True
 
@@ -368,20 +396,31 @@ def find_path(g: Graph, v1: Node, v2: Node) -> List[Edge]:
 def edges_to_vertices(e: List[Edge]) -> List[Node]:
     vertices: List[Node] = list()
 
-    for i in range(0, len(e) - 1):
-        vertices.append(e[i][0])
+    if len(e) > 0:
+        for i in range(0, len(e) - 1):
+            vertices.append(e[i][0])
 
-    vertices.append(e[-1][0])
-    vertices.append(e[-1][1])
+        vertices.append(e[-1][0])
+        vertices.append(e[-1][1])
 
     return vertices
 
 def find_sub_cycle(c: List[Edge], s: Segment) -> List[Edge]:
     attachments = list(get_attachment(s))
-    att1 = attachments[0]
-    att2 = attachments[1]
+    att1: Node = None
+    att2: Node = None
+
+    for v in edges_to_vertices(c):
+        if v in attachments:
+            if att1 is None:
+                att1 = v
+            elif att2 is None:
+                att2 = v
+                break
 
     path_segment = edges_to_vertices(find_path(get_segment(s), att1, att2))
+    # path_segment = list(nx.shortest_path(my_Graph_to_nx_Graph(get_segment(s)), source=att1, target=att2))
+    # print(att1, path_segment, att2)
     parent_cycle = edges_to_vertices(c)
 
     new_cycle = concat_cycles(parent_cycle, path_segment)
@@ -404,15 +443,15 @@ def auslander_parter(g: Graph) -> bool:
         
         interlacement_g = get_interlacement_graph(segments, c)
 
-        if test_bipartite(interlacement_g) == False:
+        if nx.is_bipartite(my_Graph_to_nx_Graph(interlacement_g)) == False:
             return False
-    
+
         for seg in segments:
 
             c_graph = edges_to_graph(c)
             sub_bi = union_Graph(c_graph, get_segment(seg))
 
-            if qtd_edges(sub_bi) > (3 * len(sub_bi) - 6) and len(sub_bi) > 2:
+            if qtd_edges(sub_bi) > (3 * len(sub_bi.keys()) - 6) and len(sub_bi.keys()) > 2:
                 return False
 
             new_cycle = find_sub_cycle(c, seg)
@@ -425,17 +464,25 @@ def auslander_parter(g: Graph) -> bool:
     bi_comp, _ = find_bi_comp(g)
 
     for b in bi_comp:
-        if qtd_edges(b) > (3 * len(b) - 6) and len(b) > 2:
+        E = qtd_edges(b)
+        if E > (3 * len(b) - 6) and len(b) > 2:
             return False
         
-        c = find_edge_cycle(b)
+        c = None
+
+        if len(b) > 2:
+            # c = find_edge_cycle(b)
+            c = nx.find_cycle(my_Graph_to_nx_Graph(b))
+        else:
+            c = []
+        
+        # print(c)
 
         if _auslander_parter(b, c) == False:
             return False
     
     return True
 #-----------------------------------------------------------------------------------------------------------------------
-
 # Converte um grafo (Dict[Node, Set[Node]]) para um nx.Graph.
 def my_Graph_to_nx_Graph(g: Graph) -> nx.Graph:
     g_output: nx.Graph = nx.Graph()
@@ -548,10 +595,11 @@ def show_sub_cycle(c: List[Edge], s: Segment) -> None:
     sub_cycle = find_sub_cycle(c, s)
 
 def show_auslander_parter(g: Graph) -> bool:
-    def _show_auslander_parter(b: Graph, c: List[Edge]) -> bool:
+    def _auslander_parter(b: Graph, c: List[Edge]) -> bool:
+
         if len(c) == 0:
             return True
-        
+    
         segments = find_segments(b, c)
         show_bi_comp_cycle_and_seg(b, edges_to_cycle(c), segments, True)
 
@@ -566,62 +614,49 @@ def show_auslander_parter(g: Graph) -> bool:
 
         if test_bipartite(interlacement_g) == False:
             return False
-    
-        for seg in segments:
-            sub_bi = union_Graph(b, get_segment(seg))
 
-            if qtd_edges(sub_bi) > 3 * len(sub_bi) - 6 and len(sub_bi) > 2:
+        for seg in segments:
+
+            c_graph = edges_to_graph(c)
+            sub_bi = union_Graph(c_graph, get_segment(seg))
+
+            if qtd_edges(sub_bi) > (3 * len(sub_bi) - 6) and len(sub_bi) > 2:
                 return False
 
             new_cycle = find_sub_cycle(c, seg)
 
-            if _show_auslander_parter(sub_bi, new_cycle) == False:
+            if _auslander_parter(sub_bi, new_cycle) == False:
                 return False
 
         return True
 
     bi_comp, cutvertices = find_bi_comp(g)
-
     show_biconnected_components(g, cutvertices, bi_comp, True)
 
     for b in bi_comp:
         if qtd_edges(b) > (3 * len(b) - 6) and len(b) > 2:
             return False
         
-        c = find_edge_cycle(b)
+        
+        if len(b) > 2:
+            c = find_edge_cycle(b)
+            # c = nx.find_cycle(my_Graph_to_nx_Graph(b))
+        c = []
+        
+        # print(c)
 
-        if _show_auslander_parter(b, c) == False:
+        if _auslander_parter(b, c) == False:
             return False
     
     return True
 
 def main() -> None:
-
-    g_nx = get_possible_planar_graph(15)
+    g_nx = get_possible_planar_graph(20)
     g = nx_Graph_to_my_Graph(g_nx)
 
-    print(nx.is_planar(g_nx))
-    print(auslander_parter(g))
+    print('nx.is_planar:', nx.is_planar(g_nx))
+    print('auslander   :', auslander_parter(g))
 
-    # g_nx = get_possible_planar_graph(20)
-    # g = nx_Graph_to_my_Graph(g_nx)
-    # bi_comp, cutvertices = find_bi_comp(g)
-    # show_biconnected_components(g, cutvertices, bi_comp, True)
-
-    # bi_comp = list(filter(lambda x : len(x) > 2, bi_comp))
-
-    # for b in bi_comp:
-    #     c = find_cycle(b)
-    #     s = find_segments(b, c)
-    #     show_bi_comp_cycle_and_seg(b, c, s, True)
-    #     cycle = cycle_to_vertices(c)
-    #     print(cycle)
-    #     for seg in s:
-    #         get_sub_cycle(c, seg)
-        
-    #     show_bipartite_graph(get_interlacement_graph(s, c))
-    
-    pass
 
 if __name__ == '__main__':
     main()
