@@ -49,7 +49,7 @@ def get_attachment(s: Segment) -> Set[Node]:
 def is_adjacent(c: List[Edge], u: Node, v: Node) -> bool:
     return (u, v) in c or (v, u) in c
 
-def graph_to_edge_set(g: Graph) -> Set[Edge]:
+def Graph_to_edge_set(g: Graph) -> Set[Edge]:
     edge_set: Set[Edge] = set()
 
     for u in g.keys():
@@ -66,7 +66,7 @@ def qtd_edges(g: Graph) -> int:
 
     return s // 2
 
-def degree_less_than(g: Graph, d: int) -> bool:
+def is_a_path(g: Graph, d: int) -> bool:
     for v in g:
         if len(g[v]) >= d:
             return False
@@ -81,16 +81,7 @@ def vertices_to_edges(v: List[Node]) -> List[Edge]:
 
     return edges
 
-# Retorna um ciclo simples direcionado
-def edges_to_cycle(e: List[Edge]) -> Graph:
-    cycle: Graph = dict()
-
-    for edge in e:
-        cycle.setdefault(edge[0], set()).add(edge[1])
-
-    return cycle
-
-def edges_to_graph(e: List[Edge]) -> Graph:
+def edges_to_Graph(e: List[Edge]) -> Graph:
     g: Graph = dict()
 
     for edge in e:
@@ -98,13 +89,17 @@ def edges_to_graph(e: List[Edge]) -> Graph:
 
     return g
 
-def vertices_to_cycle(v: List[Node]) -> Graph:
-    cycle: Graph = dict()
+def edges_to_vertices(e: List[Edge]) -> List[Node]:
+    vertices: List[Node] = list()
 
-    for i in range(len(v)):
-        cycle.setdefault(v[i], set()).add(v[(i + 1) % len(v)])
+    if len(e) > 0:
+        for i in range(0, len(e) - 1):
+            vertices.append(e[i][0])
 
-    return cycle
+        vertices.append(e[-1][0])
+        vertices.append(e[-1][1])
+
+    return vertices
 
 # Retorna a sequencia de vertices percorridos pelo ciclo
 def cycle_to_vertices(c: Graph) -> List[Node]:
@@ -222,7 +217,7 @@ def find_segments(g: Graph, c: List[Edge]) -> List[Segment]:
     def find_chords() -> None:
         nonlocal g, c_vertices, segments
 
-        for (u, v) in graph_to_edge_set(g):
+        for (u, v) in Graph_to_edge_set(g):
             if u in c_vertices and v in c_vertices:
                 if not is_adjacent(c, u, v):
                     segments.append((dict(), set()))
@@ -270,33 +265,7 @@ def find_edge_cycle(g: Graph) -> List[Edge]:
 
     return cycle
 
-def label_cycle(c: List[Node], s: Segment) -> Dict[Node, int]:
-    label_s: Dict[Node, int] = dict()
-
-    att = get_attachment(s)
-
-    i: int = 0
-    for v in c:
-        if v in att:
-            label_s[v] = (i * 2)
-
-
-    for i in range(len(c)):
-        v = c[i]
-        if v not in label_s:
-            label_s[v] = 1 + len(label_s)
-
-    for i in range(len(c) - 1):
-        v1, v2 = c[i], c[i + 1]
-
-        if v1 in att and v2 in att:
-            continue
-
-        if v1 in label_s and v2 not in label_s:
-            label_s[v2] = 1 + len(label_s)
-
-    return label_s
-
+# Recebe dois segmentos e um ciclo, verifica se os segmentos apresentam conflitos
 def check_conflict(seg_i: Segment, seg_j: Segment, c: List[Node]) -> bool:
     list_att: List[Node] = list()
     set_att1 = get_attachment(seg_i)
@@ -332,6 +301,7 @@ def check_conflict(seg_i: Segment, seg_j: Segment, c: List[Node]) -> bool:
 
     return True
 
+# Gera um grafo de entrelaçamento dos segmentos
 def get_interlacement_graph(seg: List[Segment], cycle: List[Edge]) -> Graph:
     interlacement_graph: Graph = {f's{i}': set() for i in range(len(seg))}
     cycle_vertices: List[Node] = edges_to_vertices(cycle)
@@ -345,6 +315,7 @@ def get_interlacement_graph(seg: List[Segment], cycle: List[Edge]) -> Graph:
 
     return interlacement_graph
 
+# Verifica se um grafo G é bipartido
 def test_bipartite(g: Graph) -> bool:
     def bfs_bipartite(u) -> bool:
         nonlocal g, labels
@@ -371,6 +342,8 @@ def test_bipartite(g: Graph) -> bool:
             
     return True
 
+# Recebe um grafo G e os vértices v1 e v2.
+# Se houver, retorna um caminho de v1 até v2.
 def find_path(g: Graph, v1: Node, v2: Node) -> List[Edge]:
     def _find_path(u: Node) -> List[Edge]:
         nonlocal g, v1, v2, visited
@@ -393,18 +366,8 @@ def find_path(g: Graph, v1: Node, v2: Node) -> List[Edge]:
 
     return _find_path(v1)
 
-def edges_to_vertices(e: List[Edge]) -> List[Node]:
-    vertices: List[Node] = list()
-
-    if len(e) > 0:
-        for i in range(0, len(e) - 1):
-            vertices.append(e[i][0])
-
-        vertices.append(e[-1][0])
-        vertices.append(e[-1][1])
-
-    return vertices
-
+# Recebe um segmento e um ciclo.
+# Retorna um novo ciclo que passa pelo segmento.
 def find_sub_cycle(c: List[Edge], s: Segment) -> List[Edge]:
     attachments = list(get_attachment(s))
     att1: Node = None
@@ -427,6 +390,8 @@ def find_sub_cycle(c: List[Edge], s: Segment) -> List[Edge]:
 
     return vertices_to_edges(new_cycle)
 
+# Recebe um grafo G.
+# Retorna True se G for planar.
 def auslander_parter(g: Graph) -> bool:
     def _auslander_parter(b: Graph, c: List[Edge]) -> bool:
 
@@ -438,17 +403,17 @@ def auslander_parter(g: Graph) -> bool:
         if len(segments) == 0:
             return True
         
-        if len(segments) == 1 and degree_less_than(get_segment(segments[-1]), 3):
+        if len(segments) == 1 and is_a_path(get_segment(segments[-1]), 3):
             return True
         
         interlacement_g = get_interlacement_graph(segments, c)
-
-        if nx.is_bipartite(my_Graph_to_nx_Graph(interlacement_g)) == False:
+        
+        if test_bipartite(interlacement_g) == False:
             return False
 
         for seg in segments:
 
-            c_graph = edges_to_graph(c)
+            c_graph = edges_to_Graph(c)
             sub_bi = union_Graph(c_graph, get_segment(seg))
 
             if qtd_edges(sub_bi) > (3 * len(sub_bi.keys()) - 6) and len(sub_bi.keys()) > 2:
@@ -468,15 +433,7 @@ def auslander_parter(g: Graph) -> bool:
         if E > (3 * len(b) - 6) and len(b) > 2:
             return False
         
-        c = None
-
-        if len(b) > 2:
-            # c = find_edge_cycle(b)
-            c = nx.find_cycle(my_Graph_to_nx_Graph(b))
-        else:
-            c = []
-        
-        # print(c)
+        c = find_edge_cycle(b)
 
         if _auslander_parter(b, c) == False:
             return False
@@ -521,20 +478,13 @@ def get_possible_planar_graph(v: int) -> nx.Graph:
     bound: float = floor(((3 * v) - 6)) / 100
     return nx.erdos_renyi_graph(v, uniform(0.15, bound))
 
+# Retorna um grafo planar
 def get_planar_graph(v: int) -> nx.Graph:
     g = get_possible_planar_graph(v)
     while not nx.is_planar(g):
         g = get_possible_planar_graph(v)
 
     return g
-
-def show_graph(g: nx.Graph, color: List[str] = []) -> None:
-    if color != []:
-        nx.draw(g, nx.spring_layout(g), node_color=color)
-    else:
-        nx.draw(g, nx.spring_layout(g))
-
-    plt.show()
 
 def show_bipartite_graph(g: Graph) -> None:
     g_nx = my_Graph_to_nx_Graph(g)
@@ -589,7 +539,7 @@ def show_bi_comp_cycle_and_seg(g: Graph, c: Graph, s: List[Segment], flag_label:
     plt.show()
 
 def show_sub_cycle(c: List[Edge], s: Segment) -> None:
-    sub = union_Graph(edges_to_cycle(c), get_segment(s))
+    sub = union_Graph(edges_to_Graph(c), get_segment(s))
     sub_nx = my_Graph_to_nx_Graph(sub)
 
     sub_cycle = find_sub_cycle(c, s)
@@ -601,12 +551,12 @@ def show_auslander_parter(g: Graph) -> bool:
             return True
     
         segments = find_segments(b, c)
-        show_bi_comp_cycle_and_seg(b, edges_to_cycle(c), segments, True)
+        show_bi_comp_cycle_and_seg(b, edges_to_Graph(c), segments, True)
 
         if len(segments) == 0:
             return True
         
-        if len(segments) == 1 and degree_less_than(get_segment(segments[-1]), 3):
+        if len(segments) == 1 and is_a_path(get_segment(segments[-1]), 3):
             return True
         
         interlacement_g = get_interlacement_graph(segments, c)
@@ -617,7 +567,7 @@ def show_auslander_parter(g: Graph) -> bool:
 
         for seg in segments:
 
-            c_graph = edges_to_graph(c)
+            c_graph = edges_to_Graph(c)
             sub_bi = union_Graph(c_graph, get_segment(seg))
 
             if qtd_edges(sub_bi) > (3 * len(sub_bi) - 6) and len(sub_bi) > 2:
@@ -651,12 +601,23 @@ def show_auslander_parter(g: Graph) -> bool:
     return True
 
 def main() -> None:
-    g_nx = get_possible_planar_graph(20)
-    g = nx_Graph_to_my_Graph(g_nx)
+    # g_nx = get_possible_planar_graph(20)
+    # g = nx_Graph_to_my_Graph(g_nx)
 
-    print('nx.is_planar:', nx.is_planar(g_nx))
-    print('auslander   :', auslander_parter(g))
+    # print('nx.is_planar:', nx.is_planar(g_nx))
+    # print('auslander   :', auslander_parter(g))
 
+    flag = True
+    for i in range(4000):
+        g_nx = get_possible_planar_graph(100)
+        g = nx_Graph_to_my_Graph(g_nx)
+
+        if nx.is_planar(g_nx) != auslander_parter(g):
+            print(f'error: iteration {i}')
+            flag = False
+
+    if flag:
+        print('no error occurs.')
 
 if __name__ == '__main__':
     main()
