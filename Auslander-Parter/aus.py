@@ -6,6 +6,8 @@ from typing import * # type: ignore
 from collections import deque
 import sys
 
+from networkx import is_planar
+
 sys.setrecursionlimit(40000)
 
 T = TypeVar('T')
@@ -408,7 +410,7 @@ def auslander_parter(g: Graph) -> bool:
         
         interlacement_g = get_interlacement_graph(segments, c)
         
-        if test_bipartite(interlacement_g) == False:
+        if len(interlacement_g) > 1 and test_bipartite(interlacement_g) == False:
             return False
 
         for seg in segments:
@@ -475,8 +477,8 @@ def random_connected_graph(n_vertex: int, p: float) -> nx.Graph:
 #       |E| <= 3|V| - 6.
 # |E| = floor(3|V| - 6)
 def get_possible_planar_graph(v: int) -> nx.Graph:
-    bound: float = floor(((3 * v) - 6)) / 100
-    return nx.erdos_renyi_graph(v, uniform(0.15, bound))
+    # bound: float = floor(((3 * v) - 6)) / 100
+    return nx.erdos_renyi_graph(v, 0.15)
 
 # Retorna um grafo planar
 def get_planar_graph(v: int) -> nx.Graph:
@@ -601,23 +603,20 @@ def show_auslander_parter(g: Graph) -> bool:
     return True
 
 def main() -> None:
-    # g_nx = get_possible_planar_graph(20)
-    # g = nx_Graph_to_my_Graph(g_nx)
-
-    # print('nx.is_planar:', nx.is_planar(g_nx))
-    # print('auslander   :', auslander_parter(g))
-
+    v = 10
     flag = True
     for i in range(4000):
-        g_nx = get_possible_planar_graph(100)
+        g_nx = get_possible_planar_graph(v)
         g = nx_Graph_to_my_Graph(g_nx)
 
         if nx.is_planar(g_nx) != auslander_parter(g):
-            print(f'error: iteration {i}')
+            print(f'error: iteration {i}.')
+            print(g)
             flag = False
+            # break
 
     if flag:
-        print('no error occurs.')
+        print('no errors.')
 
 if __name__ == '__main__':
     main()
